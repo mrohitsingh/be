@@ -6,7 +6,7 @@ describe('validateEnv', () => {
   it('should validate valid configuration and apply defaults', () => {
     const config = validateEnv({});
     expect(config.NODE_ENV).toBe(Environment.Development);
-    expect(config.PORT).toBe(3000);
+    expect(config.PORT).toBe(8082);
     expect(config.API_PREFIX).toBe('api/v1');
     expect(config.FRONTEND_URL).toBe('http://localhost:3000');
   });

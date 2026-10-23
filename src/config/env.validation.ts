@@ -15,7 +15,7 @@ export class EnvironmentVariables {
 
   @IsInt()
   @IsOptional()
-  PORT: number = 3000;
+  PORT: number = 8082;
 
   @IsString()
   @IsOptional()
@@ -32,6 +32,22 @@ export class EnvironmentVariables {
   @IsString()
   @IsOptional()
   OBSERVE_APP_SECRET?: string;
+
+  @IsString()
+  @IsOptional()
+  JWT_ACCESS_SECRET?: string;
+
+  @IsString()
+  @IsOptional()
+  JWT_REFRESH_SECRET?: string;
+
+  @IsString()
+  @IsOptional()
+  JWT_ACCESS_EXPIRATION?: string;
+
+  @IsString()
+  @IsOptional()
+  JWT_REFRESH_EXPIRATION?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvironmentVariables {
