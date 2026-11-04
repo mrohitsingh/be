@@ -1,0 +1,783 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==========================================
+// Core Entities
+// ==========================================
+
+model Tenant {
+  id                  Int       @id @default(autoincrement())
+  name                String    @db.VarChar(255)
+  slug                String    @db.VarChar(100)
+  code                String?   @db.VarChar(50)
+  email               String?   @db.VarChar(255)
+  phone               String?   @db.VarChar(50)
+  timezone            String    @default("UTC") @db.VarChar(50)
+  status              Int       @default(1)
+  subscription_status Int       @default(1)
+  created_at          DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at          DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at          DateTime? @db.Timestamptz(3)
+  created_by          Int?
+  updated_by          Int?
+
+  users            User[]
+  invitations      Invitation[]
+  sessions         Session[]
+  audit_logs       AuditLog[]
+
+  // Domain Relations (Academics, Admissions, Students, Attendance, Examinations)
+  academic_years      AcademicYear[]
+  classes             Class[]
+  sections            Section[]
+  subjects            Subject[]
+  admissions          AdmissionApplication[]
+  students            Student[]
+  student_enrollments StudentEnrollment[]
+  guardians           Guardian[]
+  student_guardians   StudentGuardian[]
+  teachers            Teacher[]
+  teacher_assignments TeacherAssignment[]
+  attendance_sessions AttendanceSession[]
+  attendance_records  AttendanceRecord[]
+  grade_scales        GradeScale[]
+  exams               Exam[]
+  exam_schedules      ExamSchedule[]
+  exam_marks          ExamMark[]
+  report_cards        ReportCard[]
+
+  @@index([status])
+  @@index([subscription_status])
+  @@index([deleted_at])
+  @@map("tenants")
+}
+
+model Role {
+  id         Int       @id @default(autoincrement())
+  name       String    @db.VarChar(100)
+  code       String    @unique @db.VarChar(50)
+  scope      String    @db.VarChar(20) // PLATFORM or TENANT
+  status     Int       @default(1)
+  created_at DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at DateTime? @db.Timestamptz(3)
+  created_by Int?
+  updated_by Int?
+
+  users       User[]
+  invitations Invitation[]
+
+  @@index([scope])
+  @@index([status])
+  @@map("roles")
+}
+
+model Permission {
+  id         Int       @id @default(autoincrement())
+  code       String    @unique @db.VarChar(50)
+  name       String    @db.VarChar(100)
+  status     Int       @default(1)
+  created_at DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at DateTime? @db.Timestamptz(3)
+  created_by Int?
+  updated_by Int?
+
+  @@index([status])
+  @@map("permissions")
+}
+
+model ApplicationModuleAction {
+  id              Int       @id @default(autoincrement())
+  name            String    @db.VarChar(100)
+  code            String    @unique @db.VarChar(50)
+  status          Int       @default(1)
+  system_defined  Int       @default(1)
+  created_at      DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at      DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at      DateTime? @db.Timestamptz(3)
+  created_by      Int?
+  updated_by      Int?
+  deleted_by      Int?
+  created_by_type String?   @db.VarChar(50)
+  created_by_id   Int?
+  updated_by_type String?   @db.VarChar(50)
+  updated_by_id   Int?
+  deleted_by_type String?   @db.VarChar(50)
+  deleted_by_id   Int?
+
+  @@index([code])
+  @@index([status])
+  @@map("application_module_actions")
+}
+
+model Module {
+  id             Int       @id @default(autoincrement())
+  name           String    @db.VarChar(100)
+  code           String    @unique @db.VarChar(50)
+  level          String    @default("school") @db.VarChar(50)
+  description    String?   @db.Text
+  action         String    @db.Text
+  status         Int       @default(1)
+  system_defined Int       @default(1)
+  created_at     DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at     DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at     DateTime? @db.Timestamptz(3)
+  created_by     Int?
+  updated_by     Int?
+  deleted_by     Int?
+
+  @@index([code])
+  @@index([status])
+  @@map("modules")
+}
+
+model UserAccess {
+  id            Int       @id @default(autoincrement())
+  user_id       Int?
+  user_email    String?   @db.VarChar(255)
+  is_individual Boolean   @default(true)
+  permission    String    @db.Text
+  created_at    DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at    DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at    DateTime? @db.Timestamptz(3)
+  created_by    Int?
+  updated_by    Int?
+  deleted_by    Int?
+
+  user User? @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([user_email])
+  @@index([is_individual])
+  @@map("user_access")
+}
+
+model User {
+  id                Int       @id @default(autoincrement())
+  tenant_id         Int?      // NULL for platform operators (SUPER_ADMIN)
+  role_id           Int
+  email             String    @db.VarChar(255)
+  password_hash     String?   @db.VarChar(255)
+  first_name        String    @db.VarChar(100)
+  last_name         String    @db.VarChar(100)
+  phone             String?   @db.VarChar(50)
+  status            Int       @default(1)
+  email_verified_at DateTime? @db.Timestamptz(3)
+  last_login_at     DateTime? @db.Timestamptz(3)
+  created_at        DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at        DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at        DateTime? @db.Timestamptz(3)
+  created_by        Int?
+  updated_by        Int?
+
+  tenant           Tenant?          @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  role             Role             @relation(fields: [role_id], references: [id], onDelete: Restrict)
+  sessions         Session[]
+  sent_invitations Invitation[]     @relation("InvitedByUser")
+  audit_logs       AuditLog[]
+  user_access      UserAccess[]
+  student          Student?
+  teacher          Teacher?
+  guardian         Guardian?
+
+  @@index([tenant_id])
+  @@index([role_id])
+  @@index([status])
+  @@index([deleted_at])
+  @@map("users")
+}
+
+model Invitation {
+  id          Int       @id @default(autoincrement())
+  tenant_id   Int
+  email       String    @db.VarChar(255)
+  role_id     Int
+  token_hash  String    @unique @db.VarChar(255)
+  status      Int       @default(1)
+  expires_at  DateTime  @db.Timestamptz(3)
+  accepted_at DateTime? @db.Timestamptz(3)
+  revoked_at  DateTime? @db.Timestamptz(3)
+  invited_by  Int
+  created_at  DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at  DateTime  @updatedAt @db.Timestamptz(3)
+
+  tenant  Tenant @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  role    Role   @relation(fields: [role_id], references: [id], onDelete: Restrict)
+  inviter User   @relation("InvitedByUser", fields: [invited_by], references: [id], onDelete: Restrict)
+
+  @@index([tenant_id])
+  @@index([email])
+  @@index([status])
+  @@index([expires_at])
+  @@map("invitations")
+}
+
+model Session {
+  id                 Int       @id @default(autoincrement())
+  user_id            Int
+  tenant_id          Int?
+  refresh_token_hash String    @unique @db.VarChar(255)
+  device_name        String?   @db.VarChar(255)
+  ip_address         String?   @db.VarChar(45)
+  user_agent         String?   @db.VarChar(500)
+  last_used_at       DateTime  @default(now()) @db.Timestamptz(3)
+  expires_at         DateTime  @db.Timestamptz(3)
+  revoked_at         DateTime? @db.Timestamptz(3)
+  created_at         DateTime  @default(now()) @db.Timestamptz(3)
+
+  user   User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  tenant Tenant? @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([tenant_id])
+  @@index([expires_at])
+  @@index([revoked_at])
+  @@map("sessions")
+}
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  tenant_id   Int?
+  user_id     Int?
+  action      String   @db.VarChar(100)
+  entity_type String   @db.VarChar(100)
+  entity_id   Int?
+  request_id  String?  @db.VarChar(100)
+  ip_address  String?  @db.VarChar(45)
+  user_agent  String?  @db.VarChar(500)
+  metadata    Json?    @db.JsonB
+  created_at  DateTime @default(now()) @db.Timestamptz(3)
+
+  tenant Tenant? @relation(fields: [tenant_id], references: [id], onDelete: SetNull)
+  user   User?   @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, created_at])
+  @@index([user_id, created_at])
+  @@index([entity_type, entity_id])
+  @@index([request_id])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+// ==========================================
+// Academic Structure Entities
+// ==========================================
+
+model AcademicYear {
+  id         Int       @id @default(autoincrement())
+  tenant_id  Int
+  name       String    @db.VarChar(100)
+  start_date DateTime  @db.Date
+  end_date   DateTime  @db.Date
+  is_current Boolean   @default(false)
+  status     Int       @default(1)
+  created_at DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at DateTime? @db.Timestamptz(3)
+  created_by Int?
+  updated_by Int?
+
+  tenant              Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  student_enrollments StudentEnrollment[]
+  teacher_assignments TeacherAssignment[]
+  attendance_sessions AttendanceSession[]
+  exams               Exam[]
+
+  @@unique([tenant_id, name])
+  @@index([tenant_id])
+  @@index([status])
+  @@index([is_current])
+  @@index([deleted_at])
+  @@map("academic_years")
+}
+
+model Class {
+  id         Int       @id @default(autoincrement())
+  tenant_id  Int
+  name       String    @db.VarChar(100)
+  code       String    @db.VarChar(50)
+  status     Int       @default(1)
+  created_at DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at DateTime? @db.Timestamptz(3)
+  created_by Int?
+  updated_by Int?
+
+  tenant                 Tenant                 @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  sections               Section[]
+  subjects               Subject[]
+  student_enrollments    StudentEnrollment[]
+  teacher_assignments    TeacherAssignment[]
+  admission_applications AdmissionApplication[]
+  exam_schedules         ExamSchedule[]
+
+  @@unique([tenant_id, code])
+  @@index([tenant_id])
+  @@index([status])
+  @@index([deleted_at])
+  @@map("classes")
+}
+
+model Section {
+  id         Int       @id @default(autoincrement())
+  tenant_id  Int
+  class_id   Int
+  name       String    @db.VarChar(100)
+  code       String    @db.VarChar(50)
+  capacity   Int       @default(40)
+  status     Int       @default(1)
+  created_at DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at DateTime? @db.Timestamptz(3)
+  created_by Int?
+  updated_by Int?
+
+  tenant              Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  class               Class               @relation(fields: [class_id], references: [id], onDelete: Restrict)
+  student_enrollments StudentEnrollment[]
+  teacher_assignments TeacherAssignment[]
+  attendance_sessions AttendanceSession[]
+
+  @@unique([tenant_id, class_id, code])
+  @@index([tenant_id])
+  @@index([class_id])
+  @@index([status])
+  @@index([deleted_at])
+  @@map("sections")
+}
+
+model Subject {
+  id         Int       @id @default(autoincrement())
+  tenant_id  Int
+  class_id   Int
+  name       String    @db.VarChar(100)
+  code       String    @db.VarChar(50)
+  status     Int       @default(1)
+  created_at DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at DateTime? @db.Timestamptz(3)
+  created_by Int?
+  updated_by Int?
+
+  tenant              Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  class               Class               @relation(fields: [class_id], references: [id], onDelete: Restrict)
+  teacher_assignments TeacherAssignment[]
+  exam_schedules      ExamSchedule[]
+
+  @@unique([tenant_id, class_id, code])
+  @@index([tenant_id])
+  @@index([class_id])
+  @@index([status])
+  @@index([deleted_at])
+  @@map("subjects")
+}
+
+// ==========================================
+// Admissions Entities
+// ==========================================
+
+model AdmissionApplication {
+  id                  Int       @id @default(autoincrement())
+  tenant_id           Int
+  application_number  String    @db.VarChar(50)
+  first_name          String    @db.VarChar(100)
+  last_name           String    @db.VarChar(100)
+  date_of_birth       DateTime  @db.Date
+  gender              String    @db.VarChar(20)
+  applied_class_id    Int
+  parent_name         String    @db.VarChar(100)
+  parent_email        String    @db.VarChar(255)
+  parent_phone        String?   @db.VarChar(50)
+  status              Int       @default(2) // 1=DRAFT, 2=SUBMITTED, 3=UNDER_REVIEW, 4=WAITLISTED, 5=OFFERED, 6=ENROLLED, 7=REJECTED
+  enrolled_student_id Int?
+  created_at          DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at          DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at          DateTime? @db.Timestamptz(3)
+  created_by          Int?
+  updated_by          Int?
+
+  tenant        Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  applied_class Class    @relation(fields: [applied_class_id], references: [id], onDelete: Restrict)
+  student       Student? @relation(fields: [enrolled_student_id], references: [id], onDelete: SetNull)
+
+  @@unique([tenant_id, application_number])
+  @@index([tenant_id])
+  @@index([status])
+  @@index([applied_class_id])
+  @@index([deleted_at])
+  @@map("admission_applications")
+}
+
+// ==========================================
+// Student & Teacher Management Entities
+// ==========================================
+
+model Student {
+  id               Int       @id @default(autoincrement())
+  tenant_id        Int
+  user_id          Int?      @unique
+  admission_number String    @db.VarChar(50)
+  first_name       String    @db.VarChar(100)
+  last_name        String    @db.VarChar(100)
+  date_of_birth    DateTime  @db.Date
+  gender           String    @db.VarChar(20)
+  status           Int       @default(1) // 1=ACTIVE, 2=ON_LEAVE, 3=SUSPENDED, 4=TRANSFERRED_OUT, 5=GRADUATED, 6=ARCHIVED
+  created_at       DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at       DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at       DateTime? @db.Timestamptz(3)
+  created_by       Int?
+  updated_by       Int?
+
+  tenant                 Tenant                 @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  user                   User?                  @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  enrollments            StudentEnrollment[]
+  guardians              StudentGuardian[]
+  admission_applications AdmissionApplication[]
+
+  @@unique([tenant_id, admission_number])
+  @@index([tenant_id])
+  @@index([status])
+  @@index([deleted_at])
+  @@map("students")
+}
+
+model StudentEnrollment {
+  id               Int       @id @default(autoincrement())
+  tenant_id        Int
+  student_id       Int
+  academic_year_id Int
+  class_id         Int
+  section_id       Int
+  roll_number      Int?
+  status           Int       @default(1) // 1=CURRENT, 2=COMPLETED, 3=RETAINED, 4=WITHDRAWN
+  start_date       DateTime  @default(now()) @db.Date
+  end_date         DateTime? @db.Date
+  created_at       DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at       DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at       DateTime? @db.Timestamptz(3)
+  created_by       Int?
+  updated_by       Int?
+
+  tenant             Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  student            Student            @relation(fields: [student_id], references: [id], onDelete: Restrict)
+  academic_year      AcademicYear       @relation(fields: [academic_year_id], references: [id], onDelete: Restrict)
+  class              Class              @relation(fields: [class_id], references: [id], onDelete: Restrict)
+  section            Section            @relation(fields: [section_id], references: [id], onDelete: Restrict)
+  attendance_records AttendanceRecord[]
+  exam_marks         ExamMark[]
+  report_cards       ReportCard[]
+
+  @@unique([tenant_id, academic_year_id, student_id])
+  @@index([tenant_id])
+  @@index([student_id])
+  @@index([academic_year_id])
+  @@index([class_id, section_id])
+  @@index([status])
+  @@index([deleted_at])
+  @@map("student_enrollments")
+}
+
+model Guardian {
+  id         Int       @id @default(autoincrement())
+  tenant_id  Int
+  user_id    Int?      @unique
+  first_name String    @db.VarChar(100)
+  last_name  String    @db.VarChar(100)
+  email      String    @db.VarChar(255)
+  phone      String?   @db.VarChar(50)
+  status     Int       @default(1)
+  created_at DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at DateTime? @db.Timestamptz(3)
+  created_by Int?
+  updated_by Int?
+
+  tenant   Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  user     User?             @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  students StudentGuardian[]
+
+  @@index([tenant_id])
+  @@index([email])
+  @@index([status])
+  @@index([deleted_at])
+  @@map("guardians")
+}
+
+model StudentGuardian {
+  id                Int       @id @default(autoincrement())
+  tenant_id         Int
+  student_id        Int
+  guardian_id       Int
+  relationship_type String    @db.VarChar(50) // FATHER, MOTHER, LEGAL_GUARDIAN
+  is_primary        Boolean   @default(false)
+  created_at        DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at        DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at        DateTime? @db.Timestamptz(3)
+  created_by        Int?
+  updated_by        Int?
+
+  tenant   Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  student  Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  guardian Guardian @relation(fields: [guardian_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, student_id, guardian_id])
+  @@index([tenant_id])
+  @@index([student_id])
+  @@index([guardian_id])
+  @@map("student_guardians")
+}
+
+model Teacher {
+  id          Int       @id @default(autoincrement())
+  tenant_id   Int
+  user_id     Int?      @unique
+  employee_id String    @db.VarChar(50)
+  status      Int       @default(1)
+  created_at  DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at  DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at  DateTime? @db.Timestamptz(3)
+  created_by  Int?
+  updated_by  Int?
+
+  tenant      Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  user        User?               @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  assignments TeacherAssignment[]
+
+  @@unique([tenant_id, employee_id])
+  @@index([tenant_id])
+  @@index([status])
+  @@index([deleted_at])
+  @@map("teachers")
+}
+
+model TeacherAssignment {
+  id               Int       @id @default(autoincrement())
+  tenant_id        Int
+  teacher_id       Int
+  academic_year_id Int
+  class_id         Int
+  section_id       Int
+  subject_id       Int?      // Nullable for homeroom/class teacher role
+  is_class_teacher Boolean   @default(false)
+  status           Int       @default(1)
+  created_at       DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at       DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at       DateTime? @db.Timestamptz(3)
+  created_by       Int?
+  updated_by       Int?
+
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  teacher       Teacher      @relation(fields: [teacher_id], references: [id], onDelete: Restrict)
+  academic_year AcademicYear @relation(fields: [academic_year_id], references: [id], onDelete: Restrict)
+  class         Class        @relation(fields: [class_id], references: [id], onDelete: Restrict)
+  section       Section      @relation(fields: [section_id], references: [id], onDelete: Restrict)
+  subject       Subject?     @relation(fields: [subject_id], references: [id], onDelete: Restrict)
+
+  @@index([tenant_id])
+  @@index([teacher_id])
+  @@index([academic_year_id])
+  @@index([class_id, section_id])
+  @@map("teacher_assignments")
+}
+
+// ==========================================
+// Attendance Entities
+// ==========================================
+
+model AttendanceSession {
+  id               Int       @id @default(autoincrement())
+  tenant_id        Int
+  section_id       Int
+  academic_year_id Int
+  attendance_date  DateTime  @db.Date
+  session_type     String    @default("DAILY") @db.VarChar(20) // DAILY, MORNING, AFTERNOON
+  is_locked        Boolean   @default(false)
+  taken_by         Int?
+  status           Int       @default(2) // 1=OPEN, 2=SUBMITTED, 3=LOCKED, 4=REOPENED
+  created_at       DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at       DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at       DateTime? @db.Timestamptz(3)
+  created_by       Int?
+  updated_by       Int?
+
+  tenant        Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  section       Section            @relation(fields: [section_id], references: [id], onDelete: Restrict)
+  academic_year AcademicYear       @relation(fields: [academic_year_id], references: [id], onDelete: Restrict)
+  records       AttendanceRecord[]
+
+  @@unique([tenant_id, section_id, attendance_date, session_type])
+  @@index([tenant_id])
+  @@index([section_id])
+  @@index([attendance_date])
+  @@index([status])
+  @@map("attendance_sessions")
+}
+
+model AttendanceRecord {
+  id            Int       @id @default(autoincrement())
+  tenant_id     Int
+  session_id    Int
+  enrollment_id Int
+  status        Int       @default(1) // 1=PRESENT, 2=ABSENT, 3=LATE, 4=EXCUSED, 5=HALF_DAY
+  remarks       String?   @db.VarChar(255)
+  created_at    DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at    DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at    DateTime? @db.Timestamptz(3)
+  created_by    Int?
+  updated_by    Int?
+
+  tenant     Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  session    AttendanceSession @relation(fields: [session_id], references: [id], onDelete: Cascade)
+  enrollment StudentEnrollment @relation(fields: [enrollment_id], references: [id], onDelete: Restrict)
+
+  @@unique([tenant_id, session_id, enrollment_id])
+  @@index([tenant_id])
+  @@index([enrollment_id])
+  @@index([status])
+  @@map("attendance_records")
+}
+
+// ==========================================
+// Examinations & Grading Entities
+// ==========================================
+
+model GradeScale {
+  id             Int       @id @default(autoincrement())
+  tenant_id      Int
+  name           String    @db.VarChar(100)
+  min_percentage Decimal   @db.Decimal(5, 2)
+  max_percentage Decimal   @db.Decimal(5, 2)
+  letter_grade   String    @db.VarChar(10)
+  grade_point    Decimal   @db.Decimal(4, 2)
+  status         Int       @default(1)
+  created_at     DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at     DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at     DateTime? @db.Timestamptz(3)
+  created_by     Int?
+  updated_by     Int?
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+
+  @@index([tenant_id])
+  @@index([status])
+  @@map("grade_scales")
+}
+
+model Exam {
+  id               Int       @id @default(autoincrement())
+  tenant_id        Int
+  academic_year_id Int
+  name             String    @db.VarChar(100)
+  term             String    @db.VarChar(50) // TERM_1, MIDTERM, FINAL
+  status           Int       @default(1) // 1=SCHEDULED, 2=ONGOING, 3=EVALUATION, 4=MODERATED, 5=PUBLISHED, 6=CANCELLED
+  created_at       DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at       DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at       DateTime? @db.Timestamptz(3)
+  created_by       Int?
+  updated_by       Int?
+
+  tenant        Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  academic_year AcademicYear   @relation(fields: [academic_year_id], references: [id], onDelete: Restrict)
+  schedules     ExamSchedule[]
+  report_cards  ReportCard[]
+
+  @@unique([tenant_id, academic_year_id, name])
+  @@index([tenant_id])
+  @@index([academic_year_id])
+  @@index([status])
+  @@map("exams")
+}
+
+model ExamSchedule {
+  id         Int       @id @default(autoincrement())
+  tenant_id  Int
+  exam_id    Int
+  class_id   Int
+  subject_id Int
+  exam_date  DateTime  @db.Date
+  max_marks  Decimal   @db.Decimal(6, 2)
+  pass_marks Decimal   @db.Decimal(6, 2)
+  status     Int       @default(1)
+  created_at DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at DateTime? @db.Timestamptz(3)
+  created_by Int?
+  updated_by Int?
+
+  tenant  Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  exam    Exam       @relation(fields: [exam_id], references: [id], onDelete: Cascade)
+  class   Class      @relation(fields: [class_id], references: [id], onDelete: Restrict)
+  subject Subject    @relation(fields: [subject_id], references: [id], onDelete: Restrict)
+  marks   ExamMark[]
+
+  @@unique([tenant_id, exam_id, class_id, subject_id])
+  @@index([tenant_id])
+  @@index([exam_id])
+  @@index([class_id])
+  @@index([subject_id])
+  @@map("exam_schedules")
+}
+
+model ExamMark {
+  id             Int       @id @default(autoincrement())
+  tenant_id      Int
+  schedule_id    Int
+  enrollment_id  Int
+  marks_obtained Decimal?  @db.Decimal(6, 2)
+  is_absent      Boolean   @default(false)
+  is_exempt      Boolean   @default(false)
+  status         Int       @default(2) // 1=NOT_ENTERED, 2=DRAFT, 3=SUBMITTED, 4=APPROVED
+  created_at     DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at     DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at     DateTime? @db.Timestamptz(3)
+  created_by     Int?
+  updated_by     Int?
+
+  tenant     Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  schedule   ExamSchedule      @relation(fields: [schedule_id], references: [id], onDelete: Restrict)
+  enrollment StudentEnrollment @relation(fields: [enrollment_id], references: [id], onDelete: Restrict)
+
+  @@unique([tenant_id, schedule_id, enrollment_id])
+  @@index([tenant_id])
+  @@index([schedule_id])
+  @@index([enrollment_id])
+  @@index([status])
+  @@map("exam_marks")
+}
+
+model ReportCard {
+  id                 Int       @id @default(autoincrement())
+  tenant_id          Int
+  exam_id            Int
+  enrollment_id      Int
+  total_marks        Decimal   @db.Decimal(8, 2)
+  max_possible_marks Decimal   @db.Decimal(8, 2)
+  percentage         Decimal   @db.Decimal(5, 2)
+  gpa                Decimal?  @db.Decimal(4, 2)
+  letter_grade       String?   @db.VarChar(10)
+  teacher_remarks    String?   @db.VarChar(500)
+  status             Int       @default(2) // 1=PENDING, 2=COMPILED, 3=PUBLISHED, 4=WITHHELD
+  created_at         DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at         DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at         DateTime? @db.Timestamptz(3)
+  created_by         Int?
+  updated_by         Int?
+
+  tenant     Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  exam       Exam              @relation(fields: [exam_id], references: [id], onDelete: Restrict)
+  enrollment StudentEnrollment @relation(fields: [enrollment_id], references: [id], onDelete: Restrict)
+
+  @@unique([tenant_id, exam_id, enrollment_id])
+  @@index([tenant_id])
+  @@index([exam_id])
+  @@index([enrollment_id])
+  @@index([status])
+  @@map("report_cards")
+}

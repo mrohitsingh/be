@@ -1,0 +1,10 @@
+export { seedRoles } from './roles.seeder.js';
+export { seedActions } from './actions.seeder.js';
+export { seedModules } from './modules.seeder.js';
+export { seedTenants } from './tenants.seeder.js';
+export { seedAcademics } from './academics.seeder.js';
+export { seedSuperAdmin } from './super-admin.seeder.js';
+export { seedSchoolAdmin } from './school-admin.seeder.js';
+export { seedTeachers } from './teachers.seeder.js';
+export { seedStudents } from './students.seeder.js';
+export { seedParents } from './parents.seeder.js';
